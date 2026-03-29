@@ -5,6 +5,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PomodoroScreen } from '../screens/PomodoroScreen';
+import { AnalyticsScreen } from '../screens/AnalyticsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -35,6 +36,13 @@ export const AppNavigator = () => {
           component={CalendarScreen}
           options={{
             tabBarLabel: 'Calendar',
+          }}
+        />
+        <Tab.Screen 
+          name="Analytics" 
+          component={AnalyticsScreen}
+          options={{
+            tabBarLabel: 'Analytics',
           }}
         />
         <Tab.Screen 

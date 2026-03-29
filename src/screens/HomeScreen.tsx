@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text as RNText, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { View, Text as RNText, ScrollView, StyleSheet, TextInput, TouchableOpacity, Animated, Platform } from 'react-native';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { useAppStore } from '../store/useAppStore';
-import { Priority, Task } from '../types';
+import { Priority, Task, RecurrenceRule } from '../types';
 import { useTheme } from '../theme/theme';
 import { TaskItem } from '../components/TaskItem';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -15,14 +15,42 @@ type SmartListType = 'inbox' | 'today' | 'upcoming';
 
 export const HomeScreen: React.FC = () => {
   const theme = useTheme();
-  const { tasks, addTask, toggleTask, deleteTask, folders, tags, requestNotificationPermissions, updateTask } = useAppStore();
+  const { 
+    tasks, 
+    addTask, 
+    toggleTask, 
+    deleteTask, 
+    undoDeleteTask,
+    permanentlyDeleteTask,
+    tasksPendingDeletion,
+    folders, 
+    tags, 
+    requestNotificationPermissions, 
+    updateTask,
+    checkAndCreateRecurringInstances,
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+    updateSubtask
+  } = useAppStore();
+  
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedSmartList, setSelectedSmartList] = useState<SmartListType>('inbox');
   const [showDailyPlanner, setShowDailyPlanner] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Undo snackbar state
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [lastDeletedTaskId, setLastDeletedTaskId] = useState<string | null>(null);
+  const snackbarAnim = useRef(new Animated.Value(0)).current;
+  const deletionTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   // Request notification permissions on mount
   useEffect(() => {
     requestNotificationPermissions();
+    
+    // Check for recurring instances that need to be created
+    checkAndCreateRecurringInstances();
     
     // Check if we should show daily planner
     if (DailyPlannerUtils.shouldShowDailyPlanner()) {
@@ -33,13 +61,85 @@ export const HomeScreen: React.FC = () => {
         setShowDailyPlanner(true);
       }
     }
-  }, [requestNotificationPermissions, tasks]);
 
-  const handleAddTask = async (taskData: { title: string; notes?: string; priority: Priority; folderId: string; tags: string[]; dueDate?: Date }) => {
+    // Cleanup timers on unmount
+    return () => {
+      Object.values(deletionTimers.current).forEach(clearTimeout);
+    };
+  }, [requestNotificationPermissions, tasks, checkAndCreateRecurringInstances]);
+
+  // Handle Snackbar animations and timeouts
+  useEffect(() => {
+    const latestPendingId = tasksPendingDeletion[tasksPendingDeletion.length - 1];
+    
+    if (latestPendingId && latestPendingId !== lastDeletedTaskId) {
+      setLastDeletedTaskId(latestPendingId);
+      setShowSnackbar(true);
+      
+      // Animate in
+      Animated.spring(snackbarAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+
+      // Set permanent deletion timer (4 seconds)
+      const timer = setTimeout(() => {
+        permanentlyDeleteTask(latestPendingId);
+        if (tasksPendingDeletion.length <= 1) {
+          hideSnackbar();
+        }
+      }, 4000);
+      
+      deletionTimers.current[latestPendingId] = timer;
+    }
+  }, [tasksPendingDeletion, permanentlyDeleteTask]);
+
+  const hideSnackbar = useCallback(() => {
+    Animated.timing(snackbarAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowSnackbar(false);
+      setLastDeletedTaskId(null);
+    });
+  }, [snackbarAnim]);
+
+  const handleUndo = useCallback(() => {
+    if (lastDeletedTaskId) {
+      clearTimeout(deletionTimers.current[lastDeletedTaskId]);
+      delete deletionTimers.current[lastDeletedTaskId];
+      undoDeleteTask(lastDeletedTaskId);
+      hideSnackbar();
+    }
+  }, [lastDeletedTaskId, undoDeleteTask, hideSnackbar]);
+
+  const handleAddTask = async (taskData: { 
+    title: string; 
+    notes?: string; 
+    priority: Priority; 
+    folderId: string; 
+    tags: string[]; 
+    dueDate?: Date;
+    recurrence?: RecurrenceRule;
+    estimatedDuration?: number;
+  }) => {
     await addTask(taskData);
   };
 
   const getFilteredTasks = useCallback(() => {
+    // First, filter out tasks pending deletion
+    const availableTasks = tasks.filter(task => !tasksPendingDeletion.includes(task.id));
+
+    // If searching, ignore smart lists
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return availableTasks.filter(task => 
+        task.title.toLowerCase().includes(query) || 
+        task.notes?.toLowerCase().includes(query)
+      );
+    }
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
@@ -47,28 +147,27 @@ export const HomeScreen: React.FC = () => {
 
     switch (selectedSmartList) {
       case 'inbox':
-        return tasks.filter(task => !task.dueDate && !task.isCompleted);
+        return availableTasks.filter(task => !task.dueDate && !task.isCompleted);
       case 'today':
-        return tasks.filter(task => {
+        return availableTasks.filter(task => {
           if (!task.dueDate || task.isCompleted) return false;
           const taskDate = new Date(task.dueDate);
           return taskDate >= today && taskDate < tomorrow;
         });
       case 'upcoming':
-        return tasks.filter(task => {
+        return availableTasks.filter(task => {
           if (!task.dueDate || task.isCompleted) return false;
           const taskDate = new Date(task.dueDate);
           return taskDate >= tomorrow;
         });
       default:
-        return tasks.filter(task => !task.isCompleted);
+        return availableTasks.filter(task => !task.isCompleted);
     }
-  }, [tasks, selectedSmartList]);
+  }, [tasks, selectedSmartList, searchQuery, tasksPendingDeletion]);
 
   const filteredTasks = useMemo(() => {
     const tasks = getFilteredTasks();
     return tasks.sort((a, b) => {
-      // Sort by priority first
       const priorityOrder = { high: 0, med: 1, low: 2 };
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
@@ -80,35 +179,40 @@ export const HomeScreen: React.FC = () => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const availableTasks = tasks.filter(task => !tasksPendingDeletion.includes(task.id));
+
     return {
-      inbox: tasks.filter(task => !task.dueDate && !task.isCompleted).length,
-      today: tasks.filter(task => {
+      inbox: availableTasks.filter(task => !task.dueDate && !task.isCompleted).length,
+      today: availableTasks.filter(task => {
         if (!task.dueDate || task.isCompleted) return false;
         const taskDate = new Date(task.dueDate);
         return taskDate >= today && taskDate < tomorrow;
       }).length,
-      upcoming: tasks.filter(task => {
+      upcoming: availableTasks.filter(task => {
         if (!task.dueDate || task.isCompleted) return false;
         const taskDate = new Date(task.dueDate);
         return taskDate >= tomorrow;
       }).length,
     };
-  }, [tasks]);
+  }, [tasks, tasksPendingDeletion]);
 
   const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
-    // For now, we'll just log the reorder. In a real app, you'd update the store
     console.log(`Reorder task from index ${fromIndex} to ${toIndex}`);
   }, []);
 
-  const renderTask = useCallback((item: { item: Task; index: number; drag: () => void; isActive: boolean }) => (
+  const renderTask = useCallback(({ item, drag, isActive }: any) => (
     <TaskItem
-      task={item.item}
+      task={item}
       onComplete={toggleTask}
       onDelete={deleteTask}
-      drag={item.drag}
-      isActive={item.isActive}
+      drag={drag}
+      isActive={isActive}
+      onAddSubtask={addSubtask}
+      onToggleSubtask={toggleSubtask}
+      onUpdateSubtask={updateSubtask}
+      onDeleteSubtask={deleteSubtask}
     />
-  ), [toggleTask, deleteTask]);
+  ), [toggleTask, deleteTask, addSubtask, toggleSubtask, updateSubtask, deleteSubtask]);
 
   const styles = StyleSheet.create({
     container: {
@@ -116,18 +220,32 @@ export const HomeScreen: React.FC = () => {
       backgroundColor: theme.colors.background,
     },
     header: {
-      padding: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.xl,
+      paddingBottom: theme.spacing.md,
     },
     title: {
       fontSize: 32,
       fontWeight: 'bold',
       color: theme.colors.text,
-      marginBottom: theme.spacing.sm,
+      marginBottom: theme.spacing.xs,
     },
-    taskCount: {
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.md,
+      paddingHorizontal: theme.spacing.md,
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+      height: 44,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    searchInput: {
+      flex: 1,
       fontSize: 16,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text,
     },
     listContainer: {
       flex: 1,
@@ -152,30 +270,80 @@ export const HomeScreen: React.FC = () => {
       textAlign: 'center',
       lineHeight: 24,
     },
+    snackbar: {
+      position: 'absolute',
+      bottom: theme.spacing.xl * 2,
+      left: theme.spacing.lg,
+      right: theme.spacing.lg,
+      backgroundColor: '#323232',
+      borderRadius: theme.borderRadius.sm,
+      padding: theme.spacing.md,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      ...Platform.select({
+        web: {
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.3)',
+        },
+        default: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
+          elevation: 5,
+        },
+      }),
+    },
+    snackbarText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+    },
+    undoButton: {
+      padding: theme.spacing.xs,
+    },
+    undoText: {
+      color: theme.colors.primary,
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
   });
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <RNText style={styles.title}>Daily To-Do</RNText>
-        <RNText style={styles.taskCount}>
-          {tasks.filter(t => !t.isCompleted).length} active • {tasks.length} total
-        </RNText>
       </View>
 
-      <SmartLists
-        selectedList={selectedSmartList}
-        onListChange={setSelectedSmartList}
-        inboxCount={smartListCounts.inbox}
-        todayCount={smartListCounts.today}
-        upcomingCount={smartListCounts.upcoming}
-      />
+      <View style={styles.searchBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search tasks..."
+          placeholderTextColor={theme.colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      {!searchQuery && (
+        <SmartLists
+          selectedList={selectedSmartList}
+          onListChange={setSelectedSmartList}
+          inboxCount={smartListCounts.inbox}
+          todayCount={smartListCounts.today}
+          upcomingCount={smartListCounts.upcoming}
+        />
+      )}
 
       {filteredTasks.length === 0 ? (
         <View style={styles.emptyState}>
-          <RNText style={styles.emptyTitle}>No tasks yet</RNText>
+          <RNText style={styles.emptyTitle}>
+            {searchQuery ? 'No results found' : 'No tasks yet'}
+          </RNText>
           <RNText style={styles.emptyText}>
-            Tap the + button to add your first task and start organizing your day!
+            {searchQuery 
+              ? 'Try adjusting your search query'
+              : 'Tap the + button to add your first task and start organizing your day!'}
           </RNText>
         </View>
       ) : (
@@ -191,6 +359,15 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
+      {showSnackbar && (
+        <Animated.View style={[styles.snackbar, { opacity: snackbarAnim, transform: [{ translateY: snackbarAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          <RNText style={styles.snackbarText}>Task deleted</RNText>
+          <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+            <RNText style={styles.undoText}>UNDO</RNText>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       <FloatingActionButton
         visible={true}
         onPress={() => setShowQuickAdd(true)}
@@ -202,6 +379,7 @@ export const HomeScreen: React.FC = () => {
         onAddTask={handleAddTask}
         folders={folders}
         tags={tags}
+        allTasks={tasks}
       />
 
       <DailyPlannerModal

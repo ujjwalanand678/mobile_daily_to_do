@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID!;
+
 export interface SyncMetadata {
   lastSyncTime: number;
   deviceId: string;
@@ -25,10 +28,12 @@ export class GoogleDriveSyncEngine {
     }
 
     GoogleSignin.configure({
-      webClientId: 'your-web-client-id.apps.googleusercontent.com', // Replace with actual client ID
+      webClientId: WEB_CLIENT_ID,
       offlineAccess: true,
       forceCodeForRefreshToken: true,
-      iosClientId: 'your-ios-client-id.apps.googleusercontent.com', // Replace with actual client ID
+      scopes: [
+        'https://www.googleapis.com/auth/drive.appdata'
+      ],
     });
   }
 
@@ -40,17 +45,7 @@ export class GoogleDriveSyncEngine {
 
     try {
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      
-      // Check if we have the required scope
-      const hasRequiredScope = userInfo.user.scopes?.includes('https://www.googleapis.com/auth/drive.appdata');
-      
-      if (!hasRequiredScope) {
-        console.log('Requesting additional permissions...');
-        // Sign out and sign in again with additional scopes
-        await GoogleSignin.signOut();
-        await GoogleSignin.signInWithScopes(['https://www.googleapis.com/auth/drive.appdata']);
-      }
+      const userInfo = await (GoogleSignin as any).signIn();
       
       return true;
     } catch (error) {
@@ -63,7 +58,7 @@ export class GoogleDriveSyncEngine {
     if (Platform.OS === 'web') return;
     
     try {
-      await GoogleSignin.signOut();
+      await (GoogleSignin as any).signOut();
     } catch (error) {
       console.error('Google Sign-Out error:', error);
     }
@@ -73,7 +68,7 @@ export class GoogleDriveSyncEngine {
     if (Platform.OS === 'web') return false;
     
     try {
-      return await GoogleSignin.isSignedIn();
+      return await (GoogleSignin as any).isSignedIn();
     } catch (error) {
       console.error('Check sign-in status error:', error);
       return false;

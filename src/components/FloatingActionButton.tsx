@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Animated, Text as RNText } from 'react-native';
+import { View, StyleSheet, Animated, Text as RNText, Platform } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import { useTheme } from '../theme/theme';
 
@@ -47,11 +47,18 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       backgroundColor: theme.colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
+      ...Platform.select({
+        web: {
+          boxShadow: `0px 4px 8px ${theme.colors.shadow || 'rgba(0,0,0,0.3)'}`,
+        },
+        default: {
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        },
+      }),
     },
     buttonText: {
       color: 'white',

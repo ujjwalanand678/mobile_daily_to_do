@@ -1,20 +1,9 @@
 import { useColorScheme } from 'react-native';
+import { useAppStore } from '../store/useAppStore';
+import { ThemeColors, light, dark } from './colors';
 
 export interface Theme {
-  colors: {
-    background: string;
-    surface: string;
-    primary: string;
-    secondary: string;
-    text: string;
-    textSecondary: string;
-    border: string;
-    success: string;
-    error: string;
-    warning: string;
-    shadow: string;
-    overlay: string;
-  };
+  colors: ThemeColors;
   spacing: {
     xs: number;
     sm: number;
@@ -36,21 +25,7 @@ export interface Theme {
   };
 }
 
-const lightTheme: Theme = {
-  colors: {
-    background: '#F2F2F7',
-    surface: '#FFFFFF',
-    primary: '#007AFF',
-    secondary: '#5856D6',
-    text: '#000000',
-    textSecondary: '#8E8E93',
-    border: '#E5E5EA',
-    success: '#34C759',
-    error: '#FF3B30',
-    warning: '#FF9500',
-    shadow: 'rgba(0, 0, 0, 0.1)',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-  },
+const baseTheme = {
   spacing: {
     xs: 4,
     sm: 8,
@@ -72,27 +47,37 @@ const lightTheme: Theme = {
   },
 };
 
-const darkTheme: Theme = {
-  ...lightTheme,
-  colors: {
-    background: '#000000',
-    surface: '#1C1C1E',
-    primary: '#0A84FF',
-    secondary: '#5E5CE6',
-    text: '#FFFFFF',
-    textSecondary: '#8E8E93',
-    border: '#38383A',
-    success: '#30D158',
-    error: '#FF453A',
-    warning: '#FF9F0A',
-    shadow: 'rgba(0, 0, 0, 0.3)',
-    overlay: 'rgba(0, 0, 0, 0.7)',
-  },
+export const lightTheme: Theme = {
+  ...baseTheme,
+  colors: light,
 };
 
+export const darkTheme: Theme = {
+  ...baseTheme,
+  colors: dark,
+};
+
+/**
+ * Hook to get the current theme's color palette based on user preference and system settings.
+ */
+export const useThemeColors = (): ThemeColors => {
+  const systemColorScheme = useColorScheme();
+  const themePreference = useAppStore((state) => state.themePreference);
+
+  if (themePreference === 'light') return light;
+  if (themePreference === 'dark') return dark;
+  
+  // Default to system preference
+  return systemColorScheme === 'dark' ? dark : light;
+};
+
+/**
+ * Hook to get the full theme object.
+ */
 export const useTheme = (): Theme => {
-  const colorScheme = useColorScheme();
-  return colorScheme === 'dark' ? darkTheme : lightTheme;
+  const colors = useThemeColors();
+  const theme = colors === dark ? darkTheme : lightTheme;
+  return theme;
 };
 
-export { lightTheme, darkTheme };
+export { light, dark };

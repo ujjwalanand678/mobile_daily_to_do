@@ -1,10 +1,14 @@
 import React, { useCallback } from 'react';
-import { View, Text as RNText, StyleSheet, Animated } from 'react-native';
+import { View, Text as RNText, StyleSheet, Animated, Alert, Platform } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Task, Priority } from '../types';
 import { useTheme } from '../theme/theme';
 import * as Haptics from 'expo-haptics';
+import { RecurrenceManager } from '../utils/recurrence';
+import { SubtaskManager } from '../utils/subtasks';
+import { TimeEstimateManager } from '../utils/timeEstimates';
+import { SubtaskList } from './SubtaskList';
 
 interface TaskItemProps {
   task: Task;
@@ -12,6 +16,10 @@ interface TaskItemProps {
   onDelete: (taskId: string) => void;
   drag?: () => void;
   isActive?: boolean;
+  onAddSubtask?: (taskId: string, title: string) => void;
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
+  onUpdateSubtask?: (taskId: string, subtaskId: string, title: string) => void;
+  onDeleteSubtask?: (taskId: string, subtaskId: string) => void;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ 
@@ -19,7 +27,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onComplete, 
   onDelete, 
   drag, 
-  isActive 
+  isActive,
+  onAddSubtask,
+  onToggleSubtask,
+  onUpdateSubtask,
+  onDeleteSubtask
 }) => {
   const theme = useTheme();
   const swipeableRef = React.useRef<Swipeable>(null);
@@ -40,12 +52,46 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   }, [task.id, onComplete]);
 
   const handleDelete = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    onDelete(task.id);
-    swipeableRef.current?.close();
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => swipeableRef.current?.close(),
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            onDelete(task.id);
+            swipeableRef.current?.close();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   }, [task.id, onDelete]);
 
-  const renderRightActions = (progress: Animated.AnimatedAddition) => {
+  const handleAddSubtask = useCallback((title: string) => {
+    onAddSubtask?.(task.id, title);
+  }, [task.id, onAddSubtask]);
+
+  const handleToggleSubtask = useCallback((subtaskId: string) => {
+    onToggleSubtask?.(task.id, subtaskId);
+  }, [task.id, onToggleSubtask]);
+
+  const handleUpdateSubtask = useCallback((subtaskId: string, title: string) => {
+    onUpdateSubtask?.(task.id, subtaskId, title);
+  }, [task.id, onUpdateSubtask]);
+
+  const handleDeleteSubtask = useCallback((subtaskId: string) => {
+    onDeleteSubtask?.(task.id, subtaskId);
+  }, [task.id, onDeleteSubtask]);
+
+  const renderRightActions = (progress: any) => {
     const scale = progress.interpolate({
       inputRange: [0, 1],
       outputRange: [0, 1],
@@ -60,7 +106,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     );
   };
 
-  const renderLeftActions = (progress: Animated.AnimatedAddition) => {
+  const renderLeftActions = (progress: any) => {
     const scale = progress.interpolate({
       inputRange: [0, 1],
       outputRange: [0, 1],
@@ -81,11 +127,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       marginHorizontal: theme.spacing.md,
       marginVertical: theme.spacing.xs,
       borderRadius: theme.borderRadius.md,
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
+      ...Platform.select({
+        web: {
+          boxShadow: `0px 1px 4px ${theme.colors.shadow || 'rgba(0,0,0,0.1)'}`,
+        },
+        default: {
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+        },
+      }),
       overflow: 'hidden',
       opacity: isActive ? 0.8 : 1,
     },
@@ -119,6 +172,34 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       color: theme.colors.textSecondary,
       marginLeft: theme.spacing.lg,
       marginTop: theme.spacing.xs,
+    },
+    recurrenceIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+      marginLeft: theme.spacing.lg,
+    },
+    recurrenceText: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+    timeEstimateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+      marginLeft: theme.spacing.lg,
+    },
+    timeEstimateText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    timeSpentText: {
+      fontSize: 12,
+      color: theme.colors.success,
+      fontWeight: '500',
+      marginLeft: theme.spacing.sm,
     },
     actionContainer: {
       width: 80,
@@ -165,6 +246,49 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           
           {task.notes && (
             <RNText style={styles.taskNotes}>{task.notes}</RNText>
+          )}
+          
+          {/* Time Estimate */}
+          {task.estimatedDuration && (
+            <View style={styles.timeEstimateContainer}>
+              <RNText style={styles.timeEstimateText}>
+                ⏱️ {TimeEstimateManager.formatDuration(task.estimatedDuration)}
+              </RNText>
+              {task.timeSpent && (
+                <RNText style={styles.timeSpentText}>
+                  ✓ {TimeEstimateManager.formatDuration(task.timeSpent)}
+                </RNText>
+              )}
+            </View>
+          )}
+          
+          {/* Recurrence Indicator */}
+          {task.recurrence && !task.isRecurringInstance && (
+            <View style={styles.recurrenceIndicator}>
+              <RNText style={styles.recurrenceText}>
+                🔄 {RecurrenceManager.getRecurrenceDescription(task.recurrence)}
+              </RNText>
+            </View>
+          )}
+          
+          {task.isRecurringInstance && (
+            <View style={styles.recurrenceIndicator}>
+              <RNText style={styles.recurrenceText}>
+                🔁 Recurring instance
+              </RNText>
+            </View>
+          )}
+
+          {/* Subtasks */}
+          {(SubtaskManager.hasSubtasks(task) || onAddSubtask) && (
+            <SubtaskList
+              task={task}
+              onTaskUpdate={() => {}}
+              onAddSubtask={handleAddSubtask}
+              onToggleSubtask={handleToggleSubtask}
+              onUpdateSubtask={handleUpdateSubtask}
+              onDeleteSubtask={handleDeleteSubtask}
+            />
           )}
         </RectButton>
       </View>

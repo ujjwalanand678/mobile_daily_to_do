@@ -3,6 +3,7 @@ import { View, Text as RNText, TouchableOpacity, Modal, StyleSheet, ScrollView, 
 import { Task } from '../types';
 import { useTheme } from '../theme/theme';
 import { formatDateForDisplay } from '../utils/nlp';
+import { TimeEstimateManager } from '../utils/timeEstimates';
 import * as Haptics from 'expo-haptics';
 
 interface DailyPlannerModalProps {
@@ -89,6 +90,13 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
   const allTasks = [...overdueTasks, ...todayTasks];
   const remainingTasks = allTasks.filter(task => !processedTasks.has(task.id));
   const allProcessed = processedTasks.size === allTasks.length;
+
+  // Smart planning calculations
+  const availableTime = TimeEstimateManager.getAvailableWorkingTime(new Date());
+  const totalEstimatedTime = TimeEstimateManager.getTotalEstimatedTime(remainingTasks);
+  const suggestedTasks = TimeEstimateManager.suggestTaskOrder(remainingTasks);
+  const tasksThatFit = TimeEstimateManager.getTasksThatFit(remainingTasks, availableTime);
+  const canFitAll = TimeEstimateManager.canFitInTime(remainingTasks, availableTime);
 
   const styles = StyleSheet.create({
     overlay: {
@@ -261,6 +269,28 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Smart Planning Summary */}
+            {remainingTasks.length > 0 && (
+              <View style={styles.section}>
+                <RNText style={styles.sectionTitle}>📊 Smart Planning</RNText>
+                <View style={[styles.taskCard, { backgroundColor: theme.colors.background }]}>
+                  <RNText style={styles.taskTitle}>Today's Overview</RNText>
+                  <RNText style={styles.taskMeta}>
+                    Available time: {TimeEstimateManager.formatDuration(availableTime)}
+                  </RNText>
+                  <RNText style={styles.taskMeta}>
+                    Total estimated: {TimeEstimateManager.formatDuration(totalEstimatedTime)}
+                  </RNText>
+                  <RNText style={[
+                    styles.taskMeta,
+                    { color: canFitAll ? theme.colors.success : theme.colors.warning }
+                  ]}>
+                    {canFitAll ? '✅ All tasks fit in your schedule!' : '⚠️ Some tasks may need to be deferred'}
+                  </RNText>
+                </View>
+              </View>
+            )}
+
             {remainingTasks.length === 0 ? (
               <View style={styles.emptyState}>
                 <RNText style={styles.emptyText}>
@@ -272,7 +302,8 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
                 {overdueTasks.length > 0 && (
                   <View style={styles.section}>
                     <RNText style={styles.sectionTitle}>🔴 Overdue Tasks</RNText>
-                    {overdueTasks
+                    {suggestedTasks
+                      .filter(task => overdueTasks.some(ot => ot.id === task.id))
                       .filter(task => !processedTasks.has(task.id))
                       .map((task) => (
                         <View key={task.id} style={[styles.taskCard, styles.taskCardOverdue]}>
@@ -283,6 +314,11 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
                           {task.dueDate && (
                             <RNText style={styles.taskMeta}>
                               Due: {formatDateForDisplay(task.dueDate)}
+                            </RNText>
+                          )}
+                          {task.estimatedDuration && (
+                            <RNText style={styles.taskMeta}>
+                              ⏱️ Estimated: {TimeEstimateManager.formatDuration(task.estimatedDuration)}
                             </RNText>
                           )}
                           {task.notes && (
@@ -310,7 +346,8 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
                 {todayTasks.length > 0 && (
                   <View style={styles.section}>
                     <RNText style={styles.sectionTitle}>📅 Today's Tasks</RNText>
-                    {todayTasks
+                    {suggestedTasks
+                      .filter(task => todayTasks.some(tt => tt.id === task.id))
                       .filter(task => !processedTasks.has(task.id))
                       .map((task) => (
                         <View key={task.id} style={[styles.taskCard, styles.taskCardToday]}>
@@ -321,6 +358,11 @@ export const DailyPlannerModal: React.FC<DailyPlannerModalProps> = ({
                           {task.dueDate && (
                             <RNText style={styles.taskMeta}>
                               Due: {formatDateForDisplay(task.dueDate)}
+                            </RNText>
+                          )}
+                          {task.estimatedDuration && (
+                            <RNText style={styles.taskMeta}>
+                              ⏱️ Estimated: {TimeEstimateManager.formatDuration(task.estimatedDuration)}
                             </RNText>
                           )}
                           {task.notes && (

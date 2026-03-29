@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text as RNText, TextInput, Modal, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
-import { Priority, Folder, Tag } from '../types';
+import { Priority, Folder, Tag, RecurrenceRule } from '../types';
 import { useTheme } from '../theme/theme';
 import { DateParser, formatDateForDisplay } from '../utils/nlp';
+import { RecurrenceManager } from '../utils/recurrence';
+import { RecurrenceSelector } from './RecurrenceSelector';
+import { TimeEstimateInput } from './TimeEstimateInput';
 
 interface QuickAddModalProps {
   visible: boolean;
   onClose: () => void;
-  onAddTask: (task: { title: string; notes?: string; priority: Priority; folderId: string; tags: string[]; dueDate?: Date }) => void;
+  onAddTask: (task: { 
+    title: string; 
+    notes?: string; 
+    priority: Priority; 
+    folderId: string; 
+    tags: string[]; 
+    dueDate?: Date;
+    recurrence?: RecurrenceRule;
+    estimatedDuration?: number;
+  }) => void;
   folders: Folder[];
   tags: Tag[];
+  allTasks?: any[]; // For time estimate suggestions
 }
 
 export const QuickAddModal: React.FC<QuickAddModalProps> = ({ 
@@ -17,7 +30,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   onClose, 
   onAddTask,
   folders,
-  tags
+  tags,
+  allTasks
 }) => {
   const theme = useTheme();
   const [title, setTitle] = useState('');
@@ -27,6 +41,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [parsedDueDate, setParsedDueDate] = useState<Date | undefined>();
   const [showDatePreview, setShowDatePreview] = useState(false);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | undefined>();
+  const [showRecurrenceSelector, setShowRecurrenceSelector] = useState(false);
+  const [estimatedDuration, setEstimatedDuration] = useState<number | undefined>();
 
   // Parse date/time from title as user types
   useEffect(() => {
@@ -88,6 +105,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         folderId: selectedFolderId,
         tags: selectedTagIds,
         dueDate: parsedDueDate,
+        recurrence,
+        estimatedDuration,
       });
       handleClose();
     }
@@ -101,6 +120,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     setSelectedTagIds([]);
     setParsedDueDate(undefined);
     setShowDatePreview(false);
+    setRecurrence(undefined);
+    setShowRecurrenceSelector(false);
+    setEstimatedDuration(undefined);
     onClose();
   };
 
@@ -260,6 +282,39 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       fontSize: 12,
       fontWeight: '500',
     },
+    recurrenceContainer: {
+      marginBottom: theme.spacing.lg,
+    },
+    recurrenceButton: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    recurrenceButtonActive: {
+      backgroundColor: theme.colors.secondary,
+      borderColor: theme.colors.secondary,
+    },
+    recurrenceText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.colors.text,
+    },
+    recurrenceTextActive: {
+      color: 'white',
+    },
+    recurrenceDescription: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+    },
+    recurrenceDescriptionActive: {
+      color: 'rgba(255, 255, 255, 0.8)',
+    },
   });
 
   return (
@@ -405,12 +460,63 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               </View>
             )}
 
+            {/* Time Estimate */}
+            <TimeEstimateInput
+              value={estimatedDuration}
+              onChange={setEstimatedDuration}
+              taskTitle={title}
+              allTasks={allTasks}
+            />
+
+            {/* Recurrence Selection */}
+            <View style={styles.recurrenceContainer}>
+              <RNText style={styles.sectionTitle}>Repeat</RNText>
+              <TouchableOpacity
+                style={[
+                  styles.recurrenceButton,
+                  recurrence && styles.recurrenceButtonActive,
+                ]}
+                onPress={() => setShowRecurrenceSelector(true)}
+              >
+                <View>
+                  <RNText style={[
+                    styles.recurrenceText,
+                    recurrence && styles.recurrenceTextActive,
+                  ]}>
+                    {recurrence ? RecurrenceManager.getRecurrenceDescription(recurrence) : 'No repeat'}
+                  </RNText>
+                  {recurrence && (
+                    <RNText style={[
+                      styles.recurrenceDescription,
+                      styles.recurrenceDescriptionActive,
+                    ]}>
+                      Task will repeat automatically
+                    </RNText>
+                  )}
+                </View>
+                <RNText style={[
+                  styles.recurrenceText,
+                  recurrence && styles.recurrenceTextActive,
+                ]}>
+                  {recurrence ? '🔄' : '➕'}
+                </RNText>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
               <RNText style={styles.addButtonText}>Add Task</RNText>
             </TouchableOpacity>
           </ScrollView>
         </Animated.View>
       </Animated.View>
+      
+      {/* Recurrence Selector Modal */}
+      <RecurrenceSelector
+        visible={showRecurrenceSelector}
+        onClose={() => setShowRecurrenceSelector(false)}
+        onSelect={setRecurrence}
+        currentRecurrence={recurrence}
+      />
     </Modal>
   );
 };
