@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text as RNText, TextInput, Modal, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { View, Text as RNText, TextInput, Modal, StyleSheet, TouchableOpacity, Animated, ScrollView, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { Priority, Folder, Tag, RecurrenceRule } from '../types';
 import { useTheme } from '../theme/theme';
 import { DateParser, formatDateForDisplay } from '../utils/nlp';
@@ -10,28 +13,34 @@ import { TimeEstimateInput } from './TimeEstimateInput';
 interface QuickAddModalProps {
   visible: boolean;
   onClose: () => void;
-  onAddTask: (task: { 
-    title: string; 
-    notes?: string; 
-    priority: Priority; 
-    folderId: string; 
-    tags: string[]; 
+  onAddTask: (task: {
+    title: string;
+    notes?: string;
+    priority: Priority;
+    folderId: string;
+    tags: string[];
     dueDate?: Date;
     recurrence?: RecurrenceRule;
     estimatedDuration?: number;
   }) => void;
   folders: Folder[];
   tags: Tag[];
-  allTasks?: any[]; // For time estimate suggestions
+  allTasks?: any[];
 }
 
-export const QuickAddModal: React.FC<QuickAddModalProps> = ({ 
-  visible, 
-  onClose, 
+const PRIORITY_CONFIG: Record<Priority, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  low:  { label: 'Low',  icon: 'arrow-down-outline', color: '#10B981' },
+  med:  { label: 'Med',  icon: 'remove-outline',     color: '#F59E0B' },
+  high: { label: 'High', icon: 'arrow-up-outline',   color: '#EF4444' },
+};
+
+export const QuickAddModal: React.FC<QuickAddModalProps> = ({
+  visible,
+  onClose,
   onAddTask,
   folders,
   tags,
-  allTasks
+  allTasks,
 }) => {
   const theme = useTheme();
   const [title, setTitle] = useState('');
@@ -45,7 +54,23 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [showRecurrenceSelector, setShowRecurrenceSelector] = useState(false);
   const [estimatedDuration, setEstimatedDuration] = useState<number | undefined>();
 
-  // Parse date/time from title as user types
+  const slideAnim = React.useRef(new Animated.Value(600)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 180, friction: 18 }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 600, duration: 250, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
   useEffect(() => {
     if (title.trim()) {
       const parsed = DateParser.parseDateTime(title);
@@ -62,39 +87,6 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       setShowDatePreview(false);
     }
   }, [title]);
-  
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(100)).current;
-
-  React.useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 100,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible, fadeAnim, slideAnim]);
 
   const handleAdd = () => {
     if (title.trim()) {
@@ -127,390 +119,261 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   };
 
   const toggleTag = (tagId: string) => {
-    setSelectedTagIds(prev => 
-      prev.includes(tagId) 
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId],
     );
   };
 
-  const getPriorityColor = (p: Priority) => {
-    switch (p) {
-      case 'high': return theme.colors.error;
-      case 'med': return theme.colors.warning;
-      case 'low': return theme.colors.success;
-      default: return theme.colors.textSecondary;
-    }
-  };
+  const sheetBgColor = theme.isDark ? 'rgba(16, 14, 30, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+  const tint = theme.isDark ? theme.glassmorphism.darkTint : theme.glassmorphism.lightTint;
 
   const styles = StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: theme.colors.overlay,
-      justifyContent: 'flex-end',
+    root: { flex: 1 },
+    overlay: { flex: 1, justifyContent: 'flex-end' },
+    sheet: {
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      overflow: 'hidden',
+      maxHeight: '92%',
+      backgroundColor: sheetBgColor,
     },
-    modalContainer: {
-      backgroundColor: theme.colors.surface,
-      borderTopLeftRadius: theme.borderRadius.xl,
-      borderTopRightRadius: theme.borderRadius.xl,
-      paddingTop: theme.spacing.lg,
-      paddingHorizontal: theme.spacing.md,
-      paddingBottom: theme.spacing.xxl,
-      maxHeight: '85%',
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing.lg,
-    },
-    title: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-    },
-    closeButton: {
-      fontSize: 24,
-      color: theme.colors.textSecondary,
-      padding: theme.spacing.xs,
-    },
-    input: {
-      backgroundColor: theme.colors.background,
-      borderRadius: theme.borderRadius.md,
-      padding: theme.spacing.md,
-      fontSize: 16,
-      color: theme.colors.text,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md,
-    },
-    notesInput: {
-      height: 80,
-      textAlignVertical: 'top',
-    },
-    priorityContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: theme.spacing.lg,
-    },
-    priorityButton: {
-      flex: 1,
-      paddingVertical: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.borderRadius.md,
-      alignItems: 'center',
-      marginHorizontal: theme.spacing.xs,
-    },
-    priorityButtonActive: {
-      borderWidth: 2,
-    },
-    priorityText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    addButton: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.md,
-      paddingVertical: theme.spacing.md,
-      alignItems: 'center',
-    },
-    addButtonText: {
-      color: 'white',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.text,
+    handle: {
+      width: 40, height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.colors.border,
+      alignSelf: 'center',
+      marginTop: theme.spacing.md,
       marginBottom: theme.spacing.sm,
     },
-    folderContainer: {
-      marginBottom: theme.spacing.lg,
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.md,
     },
-    folderButton: {
-      paddingVertical: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: theme.colors.text },
+    input: {
+      backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.md,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: theme.colors.text,
       borderWidth: 1,
-      marginBottom: theme.spacing.xs,
-    },
-    folderButtonActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    },
-    folderButtonInactive: {
-      backgroundColor: theme.colors.background,
       borderColor: theme.colors.border,
-    },
-    folderText: {
-      fontSize: 14,
-      fontWeight: '500',
-    },
-    tagsContainer: {
-      marginBottom: theme.spacing.lg,
-    },
-    tagButton: {
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.sm,
-      borderRadius: theme.borderRadius.sm,
-      borderWidth: 1,
-      marginRight: theme.spacing.xs,
-      marginBottom: theme.spacing.xs,
-    },
-    tagButtonActive: {
-      backgroundColor: theme.colors.secondary,
-      borderColor: theme.colors.secondary,
-    },
-    tagButtonInactive: {
-      backgroundColor: theme.colors.background,
-      borderColor: theme.colors.border,
-    },
-    tagText: {
-      fontSize: 12,
-      fontWeight: '500',
-    },
-    datePreview: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.sm,
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.sm,
       marginBottom: theme.spacing.md,
+      marginHorizontal: theme.spacing.lg,
     },
-    datePreviewText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '500',
+    notesInput: { height: 72, textAlignVertical: 'top' },
+    sectionTitle: {
+      fontSize: 11, fontWeight: '700',
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
     },
-    recurrenceContainer: {
+    priorityRow: {
+      flexDirection: 'row', gap: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg,
       marginBottom: theme.spacing.lg,
     },
-    recurrenceButton: {
-      backgroundColor: theme.colors.background,
+    priorityBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 5, paddingVertical: 10, borderRadius: theme.borderRadius.md, borderWidth: 1.5,
+    },
+    priorityBtnText: { fontSize: 13, fontWeight: '700' },
+    datePreview: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: theme.colors.primary + '22',
+      borderRadius: theme.borderRadius.sm,
+      paddingVertical: 8, paddingHorizontal: theme.spacing.md,
+      marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md,
+    },
+    datePreviewText: { color: theme.colors.primary, fontSize: 12, fontWeight: '600' },
+    chipRow: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg,
+    },
+    chip: {
+      paddingVertical: 6, paddingHorizontal: 12,
+      borderRadius: 20, borderWidth: 1,
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+    },
+    chipText: { fontSize: 13, fontWeight: '600' },
+    recurrenceBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.md,
       padding: theme.spacing.md,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      borderWidth: 1, borderColor: theme.colors.border,
+      marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg,
     },
-    recurrenceButtonActive: {
-      backgroundColor: theme.colors.secondary,
-      borderColor: theme.colors.secondary,
+    addBtnWrapper: { paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.xxl },
+    addBtn: {
+      borderRadius: theme.borderRadius.md,
+      paddingVertical: 16,
+      alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'row', gap: theme.spacing.sm,
     },
-    recurrenceText: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.text,
-    },
-    recurrenceTextActive: {
-      color: 'white',
-    },
-    recurrenceDescription: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.xs,
-    },
-    recurrenceDescriptionActive: {
-      color: 'rgba(255, 255, 255, 0.8)',
-    },
+    addBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
   });
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={handleClose}
-    >
-      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <TouchableOpacity 
-          style={{ flex: 1 }} 
-          onPress={handleClose}
-          activeOpacity={1}
+  const sheetContent = (
+    <>
+      <View style={styles.handle} />
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="add-circle-outline" size={22} color={theme.colors.primary} />
+          <RNText style={styles.headerTitle}>New Task</RNText>
+        </View>
+        <TouchableOpacity onPress={handleClose}>
+          <Ionicons name="close-circle" size={26} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Title */}
+        <TextInput
+          style={styles.input}
+          placeholder="What needs to be done?"
+          placeholderTextColor={theme.colors.textSecondary}
+          value={title}
+          onChangeText={setTitle}
+          autoFocus
         />
-        <Animated.View 
-          style={[
-            styles.modalContainer,
-            { transform: [{ translateY: slideAnim }] }
-          ]}
-        >
-          <View style={styles.header}>
-            <RNText style={styles.title}>Quick Add Task</RNText>
-            <TouchableOpacity onPress={handleClose}>
-              <RNText style={styles.closeButton}>×</RNText>
-            </TouchableOpacity>
+
+        {/* Date preview */}
+        {showDatePreview && parsedDueDate && (
+          <View style={styles.datePreview}>
+            <Ionicons name="calendar-outline" size={14} color={theme.colors.primary} />
+            <RNText style={styles.datePreviewText}>{formatDateForDisplay(parsedDueDate)}</RNText>
           </View>
+        )}
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <TextInput
-              style={styles.input}
-              placeholder="Task title (e.g., 'Call Mom tomorrow at 5pm')"
-              placeholderTextColor={theme.colors.textSecondary}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus
-            />
+        {/* Notes */}
+        <TextInput
+          style={[styles.input, styles.notesInput]}
+          placeholder="Add notes…"
+          placeholderTextColor={theme.colors.textSecondary}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+        />
 
-            {/* Date Preview */}
-            {showDatePreview && parsedDueDate && (
-              <View style={styles.datePreview}>
-                <RNText style={styles.datePreviewText}>
-                  📅 {formatDateForDisplay(parsedDueDate)}
-                </RNText>
-              </View>
-            )}
-
-            <TextInput
-              style={[styles.input, styles.notesInput]}
-              placeholder="Notes (optional)"
-              placeholderTextColor={theme.colors.textSecondary}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-            />
-
-            {/* Priority Selection */}
-            <View style={styles.priorityContainer}>
-              {(['low', 'med', 'high'] as Priority[]).map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.priorityButton,
-                    priority === p && {
-                      backgroundColor: getPriorityColor(p),
-                      borderColor: getPriorityColor(p),
-                    },
-                    priority !== p && {
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.border,
-                    },
-                    styles.priorityButtonActive,
-                  ]}
-                  onPress={() => setPriority(p)}
-                >
-                  <RNText style={[
-                    styles.priorityText,
-                    { color: priority === p ? 'white' : theme.colors.text }
-                  ]}>
-                    {p.toUpperCase()}
-                  </RNText>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Folder Selection */}
-            <View style={styles.folderContainer}>
-              <RNText style={styles.sectionTitle}>Folder</RNText>
-              {folders.map((folder) => (
-                <TouchableOpacity
-                  key={folder.id}
-                  style={[
-                    styles.folderButton,
-                    selectedFolderId === folder.id 
-                      ? styles.folderButtonActive 
-                      : styles.folderButtonInactive,
-                  ]}
-                  onPress={() => setSelectedFolderId(folder.id)}
-                >
-                  <RNText style={[
-                    styles.folderText,
-                    { 
-                      color: selectedFolderId === folder.id 
-                        ? 'white' 
-                        : theme.colors.text 
-                    }
-                  ]}>
-                    {folder.name}
-                  </RNText>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Tag Selection */}
-            {tags.length > 0 && (
-              <View style={styles.tagsContainer}>
-                <RNText style={styles.sectionTitle}>Tags</RNText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                  {tags.map((tag) => (
-                    <TouchableOpacity
-                      key={tag.id}
-                      style={[
-                        styles.tagButton,
-                        selectedTagIds.includes(tag.id) 
-                          ? styles.tagButtonActive 
-                          : styles.tagButtonInactive,
-                      ]}
-                      onPress={() => toggleTag(tag.id)}
-                    >
-                      <RNText style={[
-                        styles.tagText,
-                        { 
-                          color: selectedTagIds.includes(tag.id) 
-                            ? 'white' 
-                            : theme.colors.text 
-                        }
-                      ]}>
-                        {tag.name}
-                      </RNText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Time Estimate */}
-            <TimeEstimateInput
-              value={estimatedDuration}
-              onChange={setEstimatedDuration}
-              taskTitle={title}
-              allTasks={allTasks}
-            />
-
-            {/* Recurrence Selection */}
-            <View style={styles.recurrenceContainer}>
-              <RNText style={styles.sectionTitle}>Repeat</RNText>
+        {/* Priority */}
+        <RNText style={styles.sectionTitle}>Priority</RNText>
+        <View style={styles.priorityRow}>
+          {(Object.entries(PRIORITY_CONFIG) as [Priority, typeof PRIORITY_CONFIG[Priority]][]).map(([key, cfg]) => {
+            const isActive = priority === key;
+            return (
               <TouchableOpacity
+                key={key}
                 style={[
-                  styles.recurrenceButton,
-                  recurrence && styles.recurrenceButtonActive,
+                  styles.priorityBtn,
+                  { backgroundColor: isActive ? cfg.color + '22' : theme.colors.surface, borderColor: isActive ? cfg.color : theme.colors.border },
                 ]}
-                onPress={() => setShowRecurrenceSelector(true)}
+                onPress={() => setPriority(key)}
               >
-                <View>
-                  <RNText style={[
-                    styles.recurrenceText,
-                    recurrence && styles.recurrenceTextActive,
-                  ]}>
-                    {recurrence ? RecurrenceManager.getRecurrenceDescription(recurrence) : 'No repeat'}
-                  </RNText>
-                  {recurrence && (
-                    <RNText style={[
-                      styles.recurrenceDescription,
-                      styles.recurrenceDescriptionActive,
-                    ]}>
-                      Task will repeat automatically
-                    </RNText>
-                  )}
-                </View>
-                <RNText style={[
-                  styles.recurrenceText,
-                  recurrence && styles.recurrenceTextActive,
-                ]}>
-                  {recurrence ? '🔄' : '➕'}
-                </RNText>
+                <Ionicons name={cfg.icon} size={14} color={isActive ? cfg.color : theme.colors.textSecondary} />
+                <RNText style={[styles.priorityBtnText, { color: isActive ? cfg.color : theme.colors.textSecondary }]}>{cfg.label}</RNText>
               </TouchableOpacity>
-            </View>
+            );
+          })}
+        </View>
 
-            <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-              <RNText style={styles.addButtonText}>Add Task</RNText>
-            </TouchableOpacity>
-          </ScrollView>
-        </Animated.View>
+        {/* Folder */}
+        <RNText style={styles.sectionTitle}>Folder</RNText>
+        <View style={styles.chipRow}>
+          {folders.map((folder: Folder) => {
+            const isActive = selectedFolderId === folder.id;
+            return (
+              <TouchableOpacity
+                key={folder.id}
+                style={[styles.chip, { backgroundColor: isActive ? theme.colors.primary + '22' : theme.colors.surface, borderColor: isActive ? theme.colors.primary : theme.colors.border }]}
+                onPress={() => setSelectedFolderId(folder.id)}
+              >
+                <Ionicons name="folder-outline" size={13} color={isActive ? theme.colors.primary : theme.colors.textSecondary} />
+                <RNText style={[styles.chipText, { color: isActive ? theme.colors.primary : theme.colors.text }]}>{folder.name}</RNText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Tags */}
+        {tags.length > 0 && (
+          <>
+            <RNText style={styles.sectionTitle}>Tags</RNText>
+            <View style={styles.chipRow}>
+              {tags.map((tag: Tag) => {
+                const isActive = selectedTagIds.includes(tag.id);
+                return (
+                  <TouchableOpacity
+                    key={tag.id}
+                    style={[styles.chip, { backgroundColor: isActive ? tag.color + '33' : theme.colors.surface, borderColor: isActive ? tag.color : theme.colors.border }]}
+                    onPress={() => toggleTag(tag.id)}
+                  >
+                    <Ionicons name="pricetag-outline" size={12} color={isActive ? tag.color : theme.colors.textSecondary} />
+                    <RNText style={[styles.chipText, { color: isActive ? tag.color : theme.colors.text }]}>{tag.name}</RNText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Time estimate */}
+        <TimeEstimateInput value={estimatedDuration} onChange={setEstimatedDuration} taskTitle={title} allTasks={allTasks} />
+
+        {/* Recurrence */}
+        <RNText style={styles.sectionTitle}>Repeat</RNText>
+        <TouchableOpacity style={styles.recurrenceBtn} onPress={() => setShowRecurrenceSelector(true)}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="repeat-outline" size={18} color={recurrence ? theme.colors.primary : theme.colors.textSecondary} />
+            <RNText style={{ fontSize: 15, color: recurrence ? theme.colors.primary : theme.colors.text, fontWeight: '500' }}>
+              {recurrence ? RecurrenceManager.getRecurrenceDescription(recurrence) : 'No repeat'}
+            </RNText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Add Button */}
+        <View style={styles.addBtnWrapper}>
+          <TouchableOpacity onPress={handleAdd} disabled={!title.trim()} activeOpacity={0.85}>
+            <LinearGradient
+              colors={[theme.colors.primaryGradientStart, theme.colors.primaryGradientEnd]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={[styles.addBtn, { opacity: title.trim() ? 1 : 0.5 }]}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+              <RNText style={styles.addBtnText}>Add Task</RNText>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </>
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+      <Animated.View style={[styles.root, { opacity: fadeAnim }]}>
+        {Platform.OS === 'ios' ? (
+          <BlurView intensity={20} tint={tint} style={styles.overlay}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={handleClose} activeOpacity={1} />
+            <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+              {sheetContent}
+            </Animated.View>
+          </BlurView>
+        ) : (
+          <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={handleClose} activeOpacity={1} />
+            <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+              {sheetContent}
+            </Animated.View>
+          </View>
+        )}
       </Animated.View>
-      
-      {/* Recurrence Selector Modal */}
+
       <RecurrenceSelector
         visible={showRecurrenceSelector}
         onClose={() => setShowRecurrenceSelector(false)}

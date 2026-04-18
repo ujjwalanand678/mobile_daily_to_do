@@ -219,8 +219,7 @@ export const RecurrenceSelector: React.FC<RecurrenceSelectorProps> = ({
           </View>
 
           {/* Custom Interval Input */}
-          {(selectedType === 'custom' || 
-            (selectedType !== 'weekdays' && selectedType !== 'custom')) && (
+          {selectedType !== 'weekdays' && (
             <View style={styles.customIntervalContainer}>
               <RNText style={styles.optionText}>
                 Repeat every

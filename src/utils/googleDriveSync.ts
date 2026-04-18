@@ -27,8 +27,9 @@ export class GoogleDriveSyncEngine {
       return;
     }
 
-    GoogleSignin.configure({
+    (GoogleSignin as any).configure({
       webClientId: WEB_CLIENT_ID,
+      androidClientId: ANDROID_CLIENT_ID,
       offlineAccess: true,
       forceCodeForRefreshToken: true,
       scopes: [

@@ -17,12 +17,29 @@ export interface Theme {
     md: number;
     lg: number;
     xl: number;
+    full: number;
+  };
+  typography: {
+    displayLarge: number;
+    displayMedium: number;
+    titleLarge: number;
+    titleMedium: number;
+    bodyLarge: number;
+    bodyMedium: number;
+    bodySmall: number;
+    labelMedium: number;
+  };
+  glassmorphism: {
+    blurAmount: number;
+    lightTint: 'light' | 'dark' | 'default' | 'extraLight' | 'prominent' | 'regular' | 'systemChromeMaterial' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight' | 'systemMaterial' | 'systemMaterialDark' | 'systemMaterialLight' | 'systemThickMaterial' | 'systemThickMaterialDark' | 'systemThickMaterialLight' | 'systemThinMaterial' | 'systemThinMaterialDark' | 'systemThinMaterialLight' | 'systemUltraThinMaterial' | 'systemUltraThinMaterialDark' | 'systemUltraThinMaterialLight';
+    darkTint: 'light' | 'dark' | 'default' | 'extraLight' | 'prominent' | 'regular' | 'systemChromeMaterial' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight' | 'systemMaterial' | 'systemMaterialDark' | 'systemMaterialLight' | 'systemThickMaterial' | 'systemThickMaterialDark' | 'systemThickMaterialLight' | 'systemThinMaterial' | 'systemThinMaterialDark' | 'systemThinMaterialLight' | 'systemUltraThinMaterial' | 'systemUltraThinMaterialDark' | 'systemUltraThinMaterialLight';
   };
   shadows: {
-    sm: string;
-    md: string;
-    lg: string;
+    sm: object;
+    md: object;
+    lg: object;
   };
+  isDark: boolean;
 }
 
 const baseTheme = {
@@ -36,25 +53,84 @@ const baseTheme = {
   },
   borderRadius: {
     sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
+    md: 14,
+    lg: 20,
+    xl: 28,
+    full: 9999,
   },
-  shadows: {
-    sm: '0px 1px 2px rgba(0, 0, 0, 0.05)',
-    md: '0px 2px 8px rgba(0, 0, 0, 0.1)',
-    lg: '0px 4px 16px rgba(0, 0, 0, 0.15)',
+  typography: {
+    displayLarge: 36,
+    displayMedium: 28,
+    titleLarge: 22,
+    titleMedium: 18,
+    bodyLarge: 16,
+    bodyMedium: 14,
+    bodySmall: 12,
+    labelMedium: 13,
+  },
+  glassmorphism: {
+    blurAmount: 20,
+    lightTint: 'light' as const,
+    darkTint: 'dark' as const,
   },
 };
 
 export const lightTheme: Theme = {
   ...baseTheme,
   colors: light,
+  shadows: {
+    sm: {
+      shadowColor: light.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 1,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    md: {
+      shadowColor: light.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 1,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    lg: {
+      shadowColor: light.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 1,
+      shadowRadius: 24,
+      elevation: 12,
+    },
+  },
+  isDark: false,
 };
 
 export const darkTheme: Theme = {
   ...baseTheme,
   colors: dark,
+  shadows: {
+    sm: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    md: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    lg: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 24,
+      elevation: 12,
+    },
+  },
+  isDark: true,
 };
 
 /**
@@ -66,7 +142,7 @@ export const useThemeColors = (): ThemeColors => {
 
   if (themePreference === 'light') return light;
   if (themePreference === 'dark') return dark;
-  
+
   // Default to system preference
   return systemColorScheme === 'dark' ? dark : light;
 };
@@ -75,9 +151,13 @@ export const useThemeColors = (): ThemeColors => {
  * Hook to get the full theme object.
  */
 export const useTheme = (): Theme => {
-  const colors = useThemeColors();
-  const theme = colors === dark ? darkTheme : lightTheme;
-  return theme;
+  const systemColorScheme = useColorScheme();
+  const themePreference = useAppStore((state) => state.themePreference);
+
+  if (themePreference === 'light') return lightTheme;
+  if (themePreference === 'dark') return darkTheme;
+
+  return systemColorScheme === 'dark' ? darkTheme : lightTheme;
 };
 
 export { light, dark };

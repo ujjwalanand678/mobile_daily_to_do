@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
-import { View, Text as RNText, StyleSheet, Animated, Alert, Platform } from 'react-native';
+import { View, Text as RNText, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { Ionicons } from '@expo/vector-icons';
 import { Task, Priority } from '../types';
 import { useTheme } from '../theme/theme';
 import * as Haptics from 'expo-haptics';
@@ -22,28 +23,26 @@ interface TaskItemProps {
   onDeleteSubtask?: (taskId: string, subtaskId: string) => void;
 }
 
-export const TaskItem: React.FC<TaskItemProps> = ({ 
-  task, 
-  onComplete, 
-  onDelete, 
-  drag, 
+const PRIORITY_CONFIG: Record<Priority, { color: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  high: { color: '#EF4444', label: 'HIGH', icon: 'arrow-up' },
+  med:  { color: '#F59E0B', label: 'MED',  icon: 'remove' },
+  low:  { color: '#10B981', label: 'LOW',  icon: 'arrow-down' },
+};
+
+export const TaskItem: React.FC<TaskItemProps> = ({
+  task,
+  onComplete,
+  onDelete,
+  drag,
   isActive,
   onAddSubtask,
   onToggleSubtask,
   onUpdateSubtask,
-  onDeleteSubtask
+  onDeleteSubtask,
 }) => {
   const theme = useTheme();
   const swipeableRef = React.useRef<Swipeable>(null);
-
-  const getPriorityColor = useCallback((priority: Priority) => {
-    switch (priority) {
-      case 'high': return theme.colors.error;
-      case 'med': return theme.colors.warning;
-      case 'low': return theme.colors.success;
-      default: return theme.colors.textSecondary;
-    }
-  }, [theme.colors]);
+  const priority = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.med;
 
   const handleComplete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -52,70 +51,28 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   }, [task.id, onComplete]);
 
   const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => swipeableRef.current?.close(),
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            onDelete(task.id);
-            swipeableRef.current?.close();
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    onDelete(task.id);
+    swipeableRef.current?.close();
   }, [task.id, onDelete]);
 
-  const handleAddSubtask = useCallback((title: string) => {
-    onAddSubtask?.(task.id, title);
-  }, [task.id, onAddSubtask]);
-
-  const handleToggleSubtask = useCallback((subtaskId: string) => {
-    onToggleSubtask?.(task.id, subtaskId);
-  }, [task.id, onToggleSubtask]);
-
-  const handleUpdateSubtask = useCallback((subtaskId: string, title: string) => {
-    onUpdateSubtask?.(task.id, subtaskId, title);
-  }, [task.id, onUpdateSubtask]);
-
-  const handleDeleteSubtask = useCallback((subtaskId: string) => {
-    onDeleteSubtask?.(task.id, subtaskId);
-  }, [task.id, onDeleteSubtask]);
-
   const renderRightActions = (progress: any) => {
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
-
+    const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
     return (
-      <View style={[styles.actionContainer, { backgroundColor: theme.colors.success }]}>
-        <Animated.View style={[styles.actionButton, { transform: [{ scale }] }]}>
-          <RNText style={styles.actionText}>✓</RNText>
+      <View style={[swipeStyles.actionContainer, { backgroundColor: theme.colors.success }]}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="checkmark-circle" size={28} color="#FFF" />
         </Animated.View>
       </View>
     );
   };
 
   const renderLeftActions = (progress: any) => {
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
-
+    const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
     return (
-      <View style={[styles.actionContainer, { backgroundColor: theme.colors.error }]}>
-        <Animated.View style={[styles.actionButton, { transform: [{ scale }] }]}>
-          <RNText style={styles.actionText}>🗑</RNText>
+      <View style={[swipeStyles.actionContainer, { backgroundColor: theme.colors.error }]}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="trash-outline" size={26} color="#FFF" />
         </Animated.View>
       </View>
     );
@@ -123,102 +80,95 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const styles = StyleSheet.create({
     container: {
-      backgroundColor: theme.colors.surface,
       marginHorizontal: theme.spacing.md,
       marginVertical: theme.spacing.xs,
       borderRadius: theme.borderRadius.md,
-      ...Platform.select({
-        web: {
-          boxShadow: `0px 1px 4px ${theme.colors.shadow || 'rgba(0,0,0,0.1)'}`,
-        },
-        default: {
-          shadowColor: theme.colors.shadow,
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 2,
-        },
-      }),
       overflow: 'hidden',
-      opacity: isActive ? 0.8 : 1,
+      opacity: isActive ? 0.75 : 1,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...(theme.shadows.sm as object),
+    },
+    priorityStripe: {
+      width: 4,
+      alignSelf: 'stretch',
+      backgroundColor: priority.color,
+      borderTopLeftRadius: theme.borderRadius.md,
+      borderBottomLeftRadius: theme.borderRadius.md,
     },
     taskContent: {
+      flex: 1,
       padding: theme.spacing.md,
     },
     taskHeader: {
       flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: theme.spacing.sm,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: task.isCompleted ? theme.colors.success : theme.colors.border,
+      backgroundColor: task.isCompleted ? theme.colors.success : 'transparent',
       alignItems: 'center',
-      marginBottom: theme.spacing.xs,
+      justifyContent: 'center',
+      marginTop: 1,
     },
+    titleWrapper: { flex: 1 },
     taskTitle: {
-      flex: 1,
-      fontSize: 16,
-      fontWeight: '500',
-      color: theme.colors.text,
-      marginLeft: theme.spacing.sm,
+      fontSize: theme.typography.bodyLarge,
+      fontWeight: '600',
+      color: task.isCompleted ? theme.colors.textSecondary : theme.colors.text,
+      textDecorationLine: task.isCompleted ? 'line-through' : 'none',
+      lineHeight: 22,
     },
-    completedTask: {
-      textDecorationLine: 'line-through',
+    priorityBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      backgroundColor: priority.color + '22',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    priorityBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: priority.color,
+      letterSpacing: 0.5,
+    },
+    meta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.xs,
+      paddingLeft: 30,
+    },
+    metaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    metaText: {
+      fontSize: theme.typography.bodySmall,
       color: theme.colors.textSecondary,
-    },
-    priorityDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginLeft: theme.spacing.sm,
+      fontWeight: '500',
     },
     taskNotes: {
-      fontSize: 14,
+      fontSize: theme.typography.bodySmall,
       color: theme.colors.textSecondary,
-      marginLeft: theme.spacing.lg,
       marginTop: theme.spacing.xs,
+      paddingLeft: 30,
+      lineHeight: 18,
     },
-    recurrenceIndicator: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: theme.spacing.xs,
-      marginLeft: theme.spacing.lg,
+    dragHandle: {
+      paddingLeft: theme.spacing.xs,
+      paddingTop: 2,
     },
-    recurrenceText: {
-      fontSize: 12,
-      color: theme.colors.primary,
-      fontWeight: '500',
-    },
-    timeEstimateContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: theme.spacing.xs,
-      marginLeft: theme.spacing.lg,
-    },
-    timeEstimateText: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      fontWeight: '500',
-    },
-    timeSpentText: {
-      fontSize: 12,
-      color: theme.colors.success,
-      fontWeight: '500',
-      marginLeft: theme.spacing.sm,
-    },
-    actionContainer: {
-      width: 80,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    actionButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    actionText: {
-      color: 'white',
-      fontSize: 20,
-      fontWeight: 'bold',
-    },
+    row: { flexDirection: 'row', alignItems: 'stretch' },
   });
 
   return (
@@ -233,65 +183,95 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       leftThreshold={40}
     >
       <View style={styles.container}>
-        <RectButton style={styles.taskContent} onPress={() => {}}>
-          <View style={styles.taskHeader}>
-            <RNText style={[
-              styles.taskTitle,
-              task.isCompleted && styles.completedTask
-            ]}>
-              {task.title}
-            </RNText>
-            <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(task.priority) }]} />
-          </View>
-          
-          {task.notes && (
-            <RNText style={styles.taskNotes}>{task.notes}</RNText>
-          )}
-          
-          {/* Time Estimate */}
-          {task.estimatedDuration && (
-            <View style={styles.timeEstimateContainer}>
-              <RNText style={styles.timeEstimateText}>
-                ⏱️ {TimeEstimateManager.formatDuration(task.estimatedDuration)}
-              </RNText>
-              {task.timeSpent && (
-                <RNText style={styles.timeSpentText}>
-                  ✓ {TimeEstimateManager.formatDuration(task.timeSpent)}
-                </RNText>
+        <View style={styles.row}>
+          {/* Priority stripe */}
+          <View style={styles.priorityStripe} />
+
+          {/* Content */}
+          <RectButton style={styles.taskContent} onPress={() => {}}>
+            <View style={styles.taskHeader}>
+              {/* Checkbox */}
+              <TouchableOpacity style={styles.checkbox} onPress={handleComplete}>
+                {task.isCompleted && (
+                  <Ionicons name="checkmark" size={13} color="#FFF" />
+                )}
+              </TouchableOpacity>
+
+              {/* Title + priority badge */}
+              <View style={styles.titleWrapper}>
+                <RNText style={styles.taskTitle}>{task.title}</RNText>
+              </View>
+
+              {/* Priority badge */}
+              <View style={styles.priorityBadge}>
+                <Ionicons name={priority.icon} size={9} color={priority.color} />
+                <RNText style={styles.priorityBadgeText}>{priority.label}</RNText>
+              </View>
+
+              {/* Drag handle */}
+              {drag && (
+                <TouchableOpacity onLongPress={drag} style={styles.dragHandle}>
+                  <Ionicons name="menu-outline" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
               )}
             </View>
-          )}
-          
-          {/* Recurrence Indicator */}
-          {task.recurrence && !task.isRecurringInstance && (
-            <View style={styles.recurrenceIndicator}>
-              <RNText style={styles.recurrenceText}>
-                🔄 {RecurrenceManager.getRecurrenceDescription(task.recurrence)}
-              </RNText>
-            </View>
-          )}
-          
-          {task.isRecurringInstance && (
-            <View style={styles.recurrenceIndicator}>
-              <RNText style={styles.recurrenceText}>
-                🔁 Recurring instance
-              </RNText>
-            </View>
-          )}
 
-          {/* Subtasks */}
-          {(SubtaskManager.hasSubtasks(task) || onAddSubtask) && (
-            <SubtaskList
-              task={task}
-              onTaskUpdate={() => {}}
-              onAddSubtask={handleAddSubtask}
-              onToggleSubtask={handleToggleSubtask}
-              onUpdateSubtask={handleUpdateSubtask}
-              onDeleteSubtask={handleDeleteSubtask}
-            />
-          )}
-        </RectButton>
+            {/* Notes */}
+            {task.notes ? (
+              <RNText style={styles.taskNotes} numberOfLines={2}>{task.notes}</RNText>
+            ) : null}
+
+            {/* Meta row */}
+            {(task.estimatedDuration || task.recurrence || task.dueDate) && (
+              <View style={styles.meta}>
+                {task.estimatedDuration ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={11} color={theme.colors.textSecondary} />
+                    <RNText style={styles.metaText}>
+                      {TimeEstimateManager.formatDuration(task.estimatedDuration)}
+                      {task.timeSpent ? ` · ✓${TimeEstimateManager.formatDuration(task.timeSpent)}` : ''}
+                    </RNText>
+                  </View>
+                ) : null}
+                {task.recurrence && !task.isRecurringInstance ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="repeat-outline" size={11} color={theme.colors.primary} />
+                    <RNText style={[styles.metaText, { color: theme.colors.primary }]}>
+                      {RecurrenceManager.getRecurrenceDescription(task.recurrence)}
+                    </RNText>
+                  </View>
+                ) : null}
+                {task.isRecurringInstance ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="sync-outline" size={11} color={theme.colors.primary} />
+                    <RNText style={[styles.metaText, { color: theme.colors.primary }]}>recurring</RNText>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* Subtasks */}
+            {(SubtaskManager.hasSubtasks(task) || onAddSubtask) && (
+              <SubtaskList
+                task={task}
+                onTaskUpdate={() => {}}
+                onAddSubtask={(t) => onAddSubtask?.(task.id, t)}
+                onToggleSubtask={(id) => onToggleSubtask?.(task.id, id)}
+                onUpdateSubtask={(id, t) => onUpdateSubtask?.(task.id, id, t)}
+                onDeleteSubtask={(id) => onDeleteSubtask?.(task.id, id)}
+              />
+            )}
+          </RectButton>
+        </View>
       </View>
     </Swipeable>
   );
 };
+
+const swipeStyles = StyleSheet.create({
+  actionContainer: {
+    width: 72,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

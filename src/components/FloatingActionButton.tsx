@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, StyleSheet, Animated, Text as RNText, Platform } from 'react-native';
-import { RectButton } from 'react-native-gesture-handler';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/theme';
 
 interface FloatingActionButtonProps {
@@ -8,78 +9,83 @@ interface FloatingActionButtonProps {
   visible?: boolean;
 }
 
-export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ 
-  onPress, 
-  visible = true 
+export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
+  onPress,
+  visible = true,
 }) => {
   const theme = useTheme();
-  const scale = React.useRef(new Animated.Value(0)).current;
+  const mountAnim = useRef(new Animated.Value(0)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
 
-  React.useEffect(() => {
-    if (visible) {
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start();
-    } else {
-      Animated.spring(scale, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start();
-    }
-  }, [visible, scale]);
+  useEffect(() => {
+    Animated.spring(mountAnim, {
+      toValue: visible ? 1 : 0,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 8,
+    }).start();
+  }, [visible, mountAnim]);
+
+  const handlePressIn = () => {
+    Animated.spring(pressAnim, {
+      toValue: 0.88,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
 
   const styles = StyleSheet.create({
     container: {
       position: 'absolute',
-      bottom: theme.spacing.xl,
-      right: theme.spacing.md,
+      bottom: 86,
+      right: theme.spacing.lg,
       zIndex: 1000,
     },
     button: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
+      width: 60,
+      height: 60,
+      borderRadius: 30,
       alignItems: 'center',
-      ...Platform.select({
-        web: {
-          boxShadow: `0px 4px 8px ${theme.colors.shadow || 'rgba(0,0,0,0.3)'}`,
-        },
-        default: {
-          shadowColor: theme.colors.shadow,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 8,
-        },
-      }),
-    },
-    buttonText: {
-      color: 'white',
-      fontSize: 24,
-      fontWeight: 'bold',
-      lineHeight: 24,
-      textAlign: 'center',
+      justifyContent: 'center',
+      ...(theme.shadows.lg as object),
     },
   });
 
   return (
-    <Animated.View style={[
-      styles.container,
-      {
-        transform: [{ scale }],
-        opacity: visible ? 1 : 0,
-      }
-    ]}>
-      <RectButton style={styles.button} onPress={onPress}>
-        <RNText style={styles.buttonText}>+</RNText>
-      </RectButton>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          opacity: mountAnim,
+          transform: [{ scale: Animated.multiply(mountAnim, pressAnim) }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+      >
+        <LinearGradient
+          colors={[theme.colors.primaryGradientStart, theme.colors.primaryGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.button}
+        >
+          <Ionicons name="add" size={30} color="#FFFFFF" />
+        </LinearGradient>
+      </TouchableOpacity>
     </Animated.View>
   );
 };

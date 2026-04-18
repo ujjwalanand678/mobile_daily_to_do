@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, Text as RNText, ScrollView, StyleSheet, TextInput, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text as RNText, StyleSheet, TextInput, TouchableOpacity, Animated, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { useAppStore } from '../store/useAppStore';
 import { Priority, Task, RecurrenceRule } from '../types';
@@ -13,83 +16,90 @@ import { DailyPlannerUtils } from '../utils/dailyPlanner';
 
 type SmartListType = 'inbox' | 'today' | 'upcoming';
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning 👋';
+  if (hour < 17) return 'Good Afternoon 🌤';
+  return 'Good Evening 🌙';
+}
+
+function getFormattedDate(): string {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 export const HomeScreen: React.FC = () => {
   const theme = useTheme();
-  const { 
-    tasks, 
-    addTask, 
-    toggleTask, 
-    deleteTask, 
+  const insets = useSafeAreaInsets();
+  const {
+    tasks,
+    addTask,
+    toggleTask,
+    deleteTask,
     undoDeleteTask,
     permanentlyDeleteTask,
     tasksPendingDeletion,
-    folders, 
-    tags, 
-    requestNotificationPermissions, 
+    folders,
+    tags,
+    requestNotificationPermissions,
     updateTask,
     checkAndCreateRecurringInstances,
     addSubtask,
     toggleSubtask,
     deleteSubtask,
-    updateSubtask
+    updateSubtask,
   } = useAppStore();
-  
+
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedSmartList, setSelectedSmartList] = useState<SmartListType>('inbox');
   const [showDailyPlanner, setShowDailyPlanner] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [searchFocused, setSearchFocused] = useState(false);
+
   // Undo snackbar state
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [lastDeletedTaskId, setLastDeletedTaskId] = useState<string | null>(null);
   const snackbarAnim = useRef(new Animated.Value(0)).current;
   const deletionTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-  // Request notification permissions on mount
   useEffect(() => {
     requestNotificationPermissions();
-    
-    // Check for recurring instances that need to be created
     checkAndCreateRecurringInstances();
-    
-    // Check if we should show daily planner
+
     if (DailyPlannerUtils.shouldShowDailyPlanner()) {
       const todayTasks = DailyPlannerUtils.getTodayTasks(tasks);
       const overdueTasks = DailyPlannerUtils.getOverdueTasks(tasks);
-      
       if (todayTasks.length > 0 || overdueTasks.length > 0) {
         setShowDailyPlanner(true);
       }
     }
 
-    // Cleanup timers on unmount
     return () => {
       Object.values(deletionTimers.current).forEach(clearTimeout);
     };
-  }, [requestNotificationPermissions, tasks, checkAndCreateRecurringInstances]);
+  }, [requestNotificationPermissions, checkAndCreateRecurringInstances]);
 
-  // Handle Snackbar animations and timeouts
   useEffect(() => {
     const latestPendingId = tasksPendingDeletion[tasksPendingDeletion.length - 1];
-    
     if (latestPendingId && latestPendingId !== lastDeletedTaskId) {
       setLastDeletedTaskId(latestPendingId);
       setShowSnackbar(true);
-      
-      // Animate in
+
       Animated.spring(snackbarAnim, {
         toValue: 1,
         useNativeDriver: true,
+        tension: 200,
+        friction: 12,
       }).start();
 
-      // Set permanent deletion timer (4 seconds)
       const timer = setTimeout(() => {
         permanentlyDeleteTask(latestPendingId);
-        if (tasksPendingDeletion.length <= 1) {
-          hideSnackbar();
-        }
+        if (tasksPendingDeletion.length <= 1) hideSnackbar();
       }, 4000);
-      
+
       deletionTimers.current[latestPendingId] = timer;
     }
   }, [tasksPendingDeletion, permanentlyDeleteTask]);
@@ -97,7 +107,7 @@ export const HomeScreen: React.FC = () => {
   const hideSnackbar = useCallback(() => {
     Animated.timing(snackbarAnim, {
       toValue: 0,
-      duration: 200,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
       setShowSnackbar(false);
@@ -114,12 +124,12 @@ export const HomeScreen: React.FC = () => {
     }
   }, [lastDeletedTaskId, undoDeleteTask, hideSnackbar]);
 
-  const handleAddTask = async (taskData: { 
-    title: string; 
-    notes?: string; 
-    priority: Priority; 
-    folderId: string; 
-    tags: string[]; 
+  const handleAddTask = async (taskData: {
+    title: string;
+    notes?: string;
+    priority: Priority;
+    folderId: string;
+    tags: string[];
     dueDate?: Date;
     recurrence?: RecurrenceRule;
     estimatedDuration?: number;
@@ -128,15 +138,14 @@ export const HomeScreen: React.FC = () => {
   };
 
   const getFilteredTasks = useCallback(() => {
-    // First, filter out tasks pending deletion
     const availableTasks = tasks.filter(task => !tasksPendingDeletion.includes(task.id));
 
-    // If searching, ignore smart lists
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      return availableTasks.filter(task => 
-        task.title.toLowerCase().includes(query) || 
-        task.notes?.toLowerCase().includes(query)
+      return availableTasks.filter(
+        task =>
+          task.title.toLowerCase().includes(query) ||
+          task.notes?.toLowerCase().includes(query),
       );
     }
 
@@ -166,8 +175,8 @@ export const HomeScreen: React.FC = () => {
   }, [tasks, selectedSmartList, searchQuery, tasksPendingDeletion]);
 
   const filteredTasks = useMemo(() => {
-    const tasks = getFilteredTasks();
-    return tasks.sort((a, b) => {
+    const t = getFilteredTasks();
+    return t.sort((a, b) => {
       const priorityOrder = { high: 0, med: 1, low: 2 };
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
@@ -178,9 +187,7 @@ export const HomeScreen: React.FC = () => {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
     const availableTasks = tasks.filter(task => !tasksPendingDeletion.includes(task.id));
-
     return {
       inbox: availableTasks.filter(task => !task.dueDate && !task.isCompleted).length,
       today: availableTasks.filter(task => {
@@ -196,135 +203,155 @@ export const HomeScreen: React.FC = () => {
     };
   }, [tasks, tasksPendingDeletion]);
 
-  const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
-    console.log(`Reorder task from index ${fromIndex} to ${toIndex}`);
-  }, []);
-
-  const renderTask = useCallback(({ item, drag, isActive }: any) => (
-    <TaskItem
-      task={item}
-      onComplete={toggleTask}
-      onDelete={deleteTask}
-      drag={drag}
-      isActive={isActive}
-      onAddSubtask={addSubtask}
-      onToggleSubtask={toggleSubtask}
-      onUpdateSubtask={updateSubtask}
-      onDeleteSubtask={deleteSubtask}
-    />
-  ), [toggleTask, deleteTask, addSubtask, toggleSubtask, updateSubtask, deleteSubtask]);
+  const renderTask = useCallback(
+    ({ item, drag, isActive }: any) => (
+      <TaskItem
+        task={item}
+        onComplete={toggleTask}
+        onDelete={deleteTask}
+        drag={drag}
+        isActive={isActive}
+        onAddSubtask={addSubtask}
+        onToggleSubtask={toggleSubtask}
+        onUpdateSubtask={updateSubtask}
+        onDeleteSubtask={deleteSubtask}
+      />
+    ),
+    [toggleTask, deleteTask, addSubtask, toggleSubtask, updateSubtask, deleteSubtask],
+  );
 
   const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
+    container: { flex: 1 },
     header: {
       paddingHorizontal: theme.spacing.lg,
-      paddingTop: theme.spacing.xl,
+      paddingTop: insets.top + theme.spacing.md,
       paddingBottom: theme.spacing.md,
     },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs,
+    greeting: {
+      fontSize: theme.typography.bodyMedium,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+      marginBottom: 2,
+      letterSpacing: 0.2,
     },
-    searchBar: {
+    dateText: {
+      fontSize: theme.typography.displayMedium,
+      fontWeight: '800',
+      color: theme.colors.text,
+      letterSpacing: -0.5,
+    },
+    searchBarWrapper: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      borderWidth: 1.5,
+      borderColor: searchFocused ? theme.colors.primary : theme.colors.border,
+      backgroundColor: theme.colors.surface,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.md,
       paddingHorizontal: theme.spacing.md,
-      marginHorizontal: theme.spacing.lg,
-      marginBottom: theme.spacing.md,
-      height: 44,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
+      height: 48,
+      ...(theme.shadows.sm as object),
     },
+    searchIcon: { marginRight: theme.spacing.sm },
     searchInput: {
       flex: 1,
-      fontSize: 16,
+      fontSize: theme.typography.bodyLarge,
       color: theme.colors.text,
     },
     listContainer: {
       flex: 1,
-      paddingBottom: theme.spacing.xxl,
     },
     emptyState: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: theme.spacing.xl,
+      paddingBottom: theme.spacing.xxl,
+    },
+    emptyIconWrapper: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: theme.colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: theme.spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     emptyTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
+      fontSize: theme.typography.titleLarge,
+      fontWeight: '800',
       color: theme.colors.text,
       marginBottom: theme.spacing.sm,
       textAlign: 'center',
     },
     emptyText: {
-      fontSize: 16,
+      fontSize: theme.typography.bodyMedium,
       color: theme.colors.textSecondary,
       textAlign: 'center',
-      lineHeight: 24,
+      lineHeight: 22,
     },
     snackbar: {
       position: 'absolute',
-      bottom: theme.spacing.xl * 2,
+      bottom: theme.spacing.xl + 8,
       left: theme.spacing.lg,
       right: theme.spacing.lg,
-      backgroundColor: '#323232',
-      borderRadius: theme.borderRadius.sm,
+      backgroundColor: theme.isDark ? '#1E1E2E' : '#1E1B4B',
+      borderRadius: theme.borderRadius.md,
       padding: theme.spacing.md,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      ...Platform.select({
-        web: {
-          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.3)',
-        },
-        default: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.3,
-          shadowRadius: 4,
-          elevation: 5,
-        },
-      }),
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...(theme.shadows.lg as object),
     },
-    snackbarText: {
-      color: '#FFFFFF',
-      fontSize: 14,
-    },
-    undoButton: {
-      padding: theme.spacing.xs,
-    },
-    undoText: {
-      color: theme.colors.primary,
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
+    snackbarText: { color: '#FFFFFF', fontSize: theme.typography.bodyMedium, fontWeight: '500' },
+    undoText: { color: theme.colors.primary, fontWeight: '800', fontSize: theme.typography.bodyMedium },
   });
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={[theme.colors.backgroundGradientStart, theme.colors.backgroundGradientEnd]}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <RNText style={styles.title}>Daily To-Do</RNText>
+        <RNText style={styles.greeting}>{getGreeting()}</RNText>
+        <RNText style={styles.dateText}>{getFormattedDate()}</RNText>
       </View>
 
-      <View style={styles.searchBar}>
+      {/* Search Bar */}
+      <View style={styles.searchBarWrapper}>
+        <Ionicons
+          name="search-outline"
+          size={19}
+          color={searchFocused ? theme.colors.primary : theme.colors.textSecondary}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search tasks..."
+          placeholder="Search tasks…"
           placeholderTextColor={theme.colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
           clearButtonMode="while-editing"
         />
+        {searchQuery.length > 0 && Platform.OS === 'android' && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
+      {/* Smart Lists */}
       {!searchQuery && (
         <SmartLists
           selectedList={selectedSmartList}
@@ -335,15 +362,23 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
+      {/* Task List */}
       {filteredTasks.length === 0 ? (
         <View style={styles.emptyState}>
+          <View style={styles.emptyIconWrapper}>
+            <Ionicons
+              name={searchQuery ? 'search-outline' : 'checkmark-done-outline'}
+              size={36}
+              color={theme.colors.primary}
+            />
+          </View>
           <RNText style={styles.emptyTitle}>
-            {searchQuery ? 'No results found' : 'No tasks yet'}
+            {searchQuery ? 'No results' : 'All clear!'}
           </RNText>
           <RNText style={styles.emptyText}>
-            {searchQuery 
-              ? 'Try adjusting your search query'
-              : 'Tap the + button to add your first task and start organizing your day!'}
+            {searchQuery
+              ? 'Try a different search term'
+              : 'Tap + to add your first task and start owning your day'}
           </RNText>
         </View>
       ) : (
@@ -351,28 +386,43 @@ export const HomeScreen: React.FC = () => {
           style={styles.listContainer}
           data={filteredTasks}
           renderItem={renderTask}
-          keyExtractor={(item) => item.id}
-          onDragEnd={({ from, to }) => handleReorder(from, to)}
+          keyExtractor={item => item.id}
+          onDragEnd={() => {}}
           activationDistance={20}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: theme.spacing.xxl }}
+          contentContainerStyle={{ paddingBottom: theme.spacing.xxl + 60 }}
         />
       )}
 
+      {/* Undo Snackbar */}
       {showSnackbar && (
-        <Animated.View style={[styles.snackbar, { opacity: snackbarAnim, transform: [{ translateY: snackbarAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+        <Animated.View
+          style={[
+            styles.snackbar,
+            {
+              opacity: snackbarAnim,
+              transform: [
+                {
+                  translateY: snackbarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <RNText style={styles.snackbarText}>Task deleted</RNText>
-          <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+          <TouchableOpacity onPress={handleUndo}>
             <RNText style={styles.undoText}>UNDO</RNText>
           </TouchableOpacity>
         </Animated.View>
       )}
 
-      <FloatingActionButton
-        visible={true}
-        onPress={() => setShowQuickAdd(true)}
-      />
+      {/* FAB */}
+      <FloatingActionButton visible onPress={() => setShowQuickAdd(true)} />
 
+      {/* Modals */}
       <QuickAddModal
         visible={showQuickAdd}
         onClose={() => setShowQuickAdd(false)}
@@ -381,7 +431,6 @@ export const HomeScreen: React.FC = () => {
         tags={tags}
         allTasks={tasks}
       />
-
       <DailyPlannerModal
         visible={showDailyPlanner}
         onClose={() => setShowDailyPlanner(false)}
@@ -389,6 +438,6 @@ export const HomeScreen: React.FC = () => {
         overdueTasks={DailyPlannerUtils.getOverdueTasks(tasks)}
         onUpdateTask={updateTask}
       />
-    </View>
+    </LinearGradient>
   );
 };

@@ -119,7 +119,7 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
         )}
         {task.scheduledTime && (
           <RNText style={styles.metaText}>
-            📅 {TimeEstimateManager.formatTime(task.scheduledTime)}
+            {`📅 ${new Date(task.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
           </RNText>
         )}
       </View>

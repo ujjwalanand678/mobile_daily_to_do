@@ -187,7 +187,7 @@ export class AnalyticsManager {
       mostProductiveDay,
       averageTasksPerDay,
       totalTasksCompleted,
-      focusTimeToday,
+      focusTimeToday: focusTimeTodayFormatted,
       streakDays,
     };
   }
