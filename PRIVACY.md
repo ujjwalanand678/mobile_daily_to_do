@@ -34,7 +34,8 @@ Our App does not address anyone under the age of 13. We do not knowingly collect
 We may update our Privacy Policy from time to time. We will notify you of any changes by updating the "Last Updated" date at the top of this page.
 
 ## 8. Contact Us
-If you have any questions about this Privacy Policy, please contact us.
+If you have any questions about this Privacy Policy, please contact us at:
+📧 [ujjwalanand678@gmail.com](mailto:ujjwalanand678@gmail.com)
 
 ---
 *This privacy policy was generated for the Daily To-Do mobile application.*
