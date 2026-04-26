@@ -153,43 +153,25 @@ This document provides comprehensive documentation of all dependencies used in t
 - **Why This Choice**: Superior performance, native feel, extensive gesture support
 
 #### React Native Reanimated
-- **Package**: `react-native-reanimated: ^3.15.4`
+- **Package**: `react-native-reanimated: 4.2.1`
 - **Purpose**: High-performance animations for React Native
-- **Usage**: Modal transitions, progress indicators, haptic feedback animations
+- **Usage**: Modal transitions, tab animations, and premium glass micro-interactions
 - **Key Features**:
+  - **Modular V4 Architecture**
   - Native animation driver
-  - 60fps animations
-  - Gesture integration
-  - Complex animation support
-- **Usage Examples**:
-  ```typescript
-  const fadeAnim = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: fadeAnim.value,
-  }));
-  ```
-- **Alternatives**: React Native Animated API, Lottie animations
-- **Why This Choice**: Superior performance, gesture integration, developer-friendly API
+  - Shared Value system
+- **Alternatives**: React Native Animated API
+- **Why This Choice**: Required for the premium 2026 design system and SDK 55 compatibility.
 
-#### React Native Worklets Core
-- **Package**: `react-native-worklets-core: ^0.5.0`
-- **Purpose**: Core worklet functionality for React Native Reanimated
-- **Usage**: Enables JavaScript execution on UI thread
+#### React Native Worklets
+- **Package**: `react-native-worklets: 0.7.2`
+- **Purpose**: Core worklet engine extracted from Reanimated
+- **Usage**: Enables JavaScript execution on the UI thread for smooth animations
 - **Key Features**:
-  - UI thread JavaScript execution
-  - Worklet creation and management
-  - Performance optimization
-  - Animation framework support
-- **Usage Examples**:
-  ```typescript
-  'worklet';
-  const myWorklet = () => {
-    // Runs on UI thread
-    return value * 2;
-  };
-  ```
-- **Alternatives**: Built-in JavaScript execution (slower)
-- **Why This Choice**: Required for Reanimated 3+, provides optimal performance
+  - Extracted standalone modularity
+  - Improved UI thread performance
+- **Alternatives**: None (required by Reanimated 4)
+- **Why This Choice**: Reanimated 4 moved its worklet logic to this dedicated package.
 
 #### React Native Draggable FlatList
 - **Package**: `react-native-draggable-flatlist: ^4.0.3`

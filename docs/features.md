@@ -1,27 +1,19 @@
 # Functional Requirements Documentation
 
-## Dynamic Theming System
+### Premium Glassmorphism UI
+- **Visual Identity**: Modern "Glassmorphism" aesthetic with frosted backgrounds and dynamic blurs.
+- **Micro-animations**: Powered by **Reanimated 4** to provide high-fidelity state transitions.
+- **Haptic Feedback**: Context-aware haptics for completion, deletion, and navigation.
+- **Color Palette**: Sophisticated Indigo/Violet gradients with high-contrast accessibility.
 
-### Theme Architecture
+### High-Performance Persistence
+- **Engine**: **React Native MMKV** (C++ based direct memory mapping).
+- **Speed**: Instant app startup and lag-free UI state updates.
+- **Reliability**: Industrial-grade persistence that survives background app kills.
 
-- **Color Palettes**: Separate light and dark theme definitions
-- **System Integration**: Automatic response to device theme settings
-- **Manual Override**: User can force light or dark theme
-- **Consistent Application**: Theme applies to all components
-
-### Theme Preferences
-
-- **System Default**: Follows device theme automatically
-- **Light Mode**: Forces light theme regardless of device
-- **Dark Mode**: Forces dark theme regardless of device
-- **Persistence**: Theme preference saved in local storage
-
-### Color Implementation
-
-- **Deep Grays**: Dark theme uses #121212 background instead of pure black
-- **Accessibility**: High contrast ratios for text readability
-- **Semantic Colors**: Success, error, warning colors for both themes
-- **Component Integration**: All components use useThemeColors() hook
+### Google Drive Sync (Privacy-First)
+- **App Data Folder**: Uses the hidden `drive.appdata` scope so sync files stay invisible to the user's regular Drive view.
+- **Conflict Logic**: High-resolution timestamp comparison to ensure no data loss during multi-device use.
 
 ### Theme Hook Implementation
 

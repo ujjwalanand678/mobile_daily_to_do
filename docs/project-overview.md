@@ -10,125 +10,78 @@
 
 ## Purpose of the Application
 
-Daily To-Do is a feature-rich task management application designed to help users organize their daily activities with intelligent features and seamless synchronization across devices. The app combines traditional task management with modern productivity techniques like Pomodoro timing and natural language processing.
+Daily To-Do is a premium, high-performance task management application designed with a **modern Glassmorphism aesthetic**. It helps users organize their daily activities with intelligent features, ultra-fast local persistence (MMKV), and seamless synchronization using Google Drive's hidden App Data folder.
 
 ## Problem It Solves
 
 The application addresses several common productivity challenges:
 
-1. **Task Organization**: Users struggle to categorize and prioritize tasks effectively
-2. **Time Management**: Lack of structured approach to focused work sessions
-3. **Cross-Device Sync**: Need for seamless task synchronization across multiple devices
-4. **Smart Scheduling**: Manual date entry is time-consuming and error-prone
-5. **Daily Planning**: Users need help organizing their day efficiently
-6. **Notification Management**: Missing important task deadlines
+1. **Task Organization**: Premium UI categorization and priority management.
+2. **Time Management**: Integrated Pomodoro timer with SVG-based visual progress.
+3. **Cross-Device Sync**: One-touch Google Drive synchronization.
+4. **Smart Scheduling**: Natural language NLP for effortless date entry.
+5. **Modern Aesthetics**: Premium "Glassmorphism" design that feels alive and responsive.
 
 ## Target Users
 
-- **Primary Users**: Professionals, students, and individuals who need structured task management
-- **Secondary Users**: Teams looking for simple task coordination
-- **Age Range**: 18-65 years
-- **Technical Proficiency**: Moderate - comfortable with mobile applications
-- **Platforms**: iOS, Android, and Web users
+- **Primary Users**: Professionals, students, and power users who value both utility and high-end design.
 
 ## Core Features Summary
 
 ### Task Management
 
-- Create, edit, and delete tasks with rich metadata
-- Priority levels (High, Medium, Low)
-- Due date scheduling with natural language parsing
-- Task categorization using folders and tags
-- Task completion tracking with time spent
-
-### Smart Lists
-
-- Inbox: Tasks without due dates
-- Today: Tasks scheduled for today
-- Upcoming: Future tasks
-- Automatic task filtering and sorting
+- **Premium UI**: Glass-frosted cards with haptic feedback and smooth transitions.
+- **Priority stripes**: Immediate visual differentiation between task urgencies.
+- **NLP Scheduling**: Type "Buy milk tomorrow at 5pm" and the app does the rest.
+- **Smart Filters**: Dynamic gradient-pilled "Today", "Inbox", and "Upcoming" lists.
 
 ### Pomodoro Timer
 
-- 25-minute focused work sessions
-- Task association for time tracking
-- Session completion tracking
-- Visual progress indicators
-
-### Daily Planning
-
-- Daily planner modal for task organization
-- Overdue task highlighting
-- Today's task overview
-- Smart task suggestions
+- **SVG Progress Ring**: High-fidelity work session tracker with glass-back controls.
+- **Micro-interactions**: Haptic notification on session end and interval completion.
 
 ### Synchronization
 
-- Google Drive integration for cross-device sync
-- Automatic background synchronization
-- Conflict resolution with timestamp comparison
-- Offline support with local storage
-
-### Natural Language Processing
-
-- Date/time parsing from task titles
-- Smart due date extraction
-- Text cleaning and normalization
+- **Privacy-Focused**: Syncs to a hidden "AppData" folder in the user's Google Drive.
+- **Conflicts**: Intelligent local-vs-remote timestamp comparison.
 
 ## High-Level Architecture
 
 ### Frontend Architecture
 
-- **Framework**: React Native with Expo
-- **State Management**: Zustand for global state
-- **Navigation**: React Navigation with bottom tabs
-- **UI Components**: Custom components with theme system
-- **Storage**: MMKV (native) and localStorage (web)
+- **Framework**: React Native with Expo (SDK 55)
+- **State Management**: Zustand (Global) + MMKV (Fast-access persistence)
+- **Navigation**: Custom Animated Glass Tab Bar
+- **UI System**: Premium Glassmorphism tokens (Blur + Transparency + Gradients)
 
 ### Backend Architecture
 
-- **Cloud Storage**: Google Drive API
-- **Authentication**: Google Sign-In
-- **Sync Engine**: Custom conflict resolution
-- **Data Format**: JSON serialization
-
-### Data Flow
-
-```
-User Interface → Zustand Store → Local Storage → Google Drive Sync
-     ↓                ↓              ↓              ↓
-Component Actions → State Updates → Persistence → Cloud Backup
-```
+- **Cloud Storage**: Google Drive API (Native SDK)
+- **Authentication**: Native Google Sign-In
 
 ## Tech Stack
 
 ### Frontend Technologies
 
-- **React Native**: 0.83.4 - Cross-platform mobile development
-- **Expo**: ~55.0.8 - Development platform and tooling
-- **TypeScript**: ~5.9.2 - Type-safe JavaScript
-- **React Navigation**: ^7.1.34 - Navigation and routing
-- **React Native Reanimated**: ^3.15.4 - Smooth animations
-- **React Native Gesture Handler**: ^2.30.0 - Touch gesture handling
+- **React Native**: 0.83.4 - Stability and performance
+- **Expo**: ~55.0.15 - Modern development toolkit
+- **TypeScript**: ~5.9.2 - End-to-end type safety
+- **React Navigation**: ^7.1.34 - Themed navigation containers
+- **React Native Reanimated**: 4.2.1 - **Modular V4 Architecture**
+- **React Native Worklets**: 0.7.2 - **Modular extraction for high performance**
 
 ### State Management
 
-- **Zustand**: ^5.0.12 - Lightweight state management
-- **React Native MMKV**: ^4.3.0 - High-performance storage
+- **Zustand**: ^5.0.12 - Lightweight, optimized state
+- **React Native MMKV**: ^4.3.1 - Ultra-fast storage engine (C++ based)
 
 ### UI & UX
 
-- **React Native Draggable FlatList**: ^4.0.3 - Drag-and-drop functionality
-- **React Native SVG**: 15.15.3 - Vector graphics
-- **React Native Calendars**: ^1.1314.0 - Calendar component
-- **React Native Worklets Core**: ^0.5.0 - UI thread JavaScript execution
-- **Expo Haptics**: ^55.0.9 - Haptic feedback
-- **Expo Notifications**: ~55.0.14 - Push notifications
-
-### Authentication & Sync
-
-- **Google Sign-In**: ^16.1.2 - OAuth authentication
-- **Google Drive API**: Cloud storage and synchronization
+- **Expo Blur**: ~55.0.14 - Native Frosted Glass effects
+- **Expo Linear Gradient**: ~55.0.13 - Premium visual accents
+- **React Native SVG**: 15.15.3 - High-performance vector graphics
+- **Expo Haptics**: ^55.0.9 - Improved tactile feedback
+- **Expo Notifications**: ~55.0.19 - Foreground/Background reminders
 
 ### Development Tools
 
