@@ -56,10 +56,20 @@ export interface Tag {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+export type FontPreference =
+  | 'system'
+  | 'GloriaHallelujah'
+  | 'Caveat'
+  | 'Pacifico'
+  | 'DancingScript'
+  | 'IndieFlower'
+  | 'ShadowsIntoLight';
+
 export interface AppState {
   tasks: Task[];
   folders: Folder[];
   tags: Tag[];
   themePreference: ThemePreference;
+  fontPreference: FontPreference;
   lastSyncedAt?: string; // ISO timestamp
 }

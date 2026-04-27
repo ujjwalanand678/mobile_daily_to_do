@@ -4,10 +4,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme';
+import { FONT_OPTIONS, FontOption } from '../theme/fonts';
 import { GlassCard } from '../components/GlassCard';
 import { SyncSettings } from '../components/SyncSettings';
 import { useAppStore } from '../store/useAppStore';
-import { ThemePreference } from '../types';
+import { ThemePreference, FontPreference } from '../types';
 import { formatRelativeTime } from '../utils/time';
 
 type ThemeOption = { label: string; value: ThemePreference; icon: keyof typeof Ionicons.glyphMap };
@@ -77,12 +78,31 @@ const styles_static = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  fontCard: {
+    width: 90,
+    height: 80,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  fontCardSample: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  fontCardLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
 
 export const SettingsScreen: React.FC = () => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { themePreference, setThemePreference, lastSyncedAt } = useAppStore();
+  const { themePreference, setThemePreference, fontPreference, setFontPreference, lastSyncedAt } = useAppStore();
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncedAt));
 
   useEffect(() => {
@@ -191,6 +211,64 @@ export const SettingsScreen: React.FC = () => {
                 />
               ))}
             </View>
+          </GlassCard>
+
+          {/* Font Style Section */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="text-outline" size={20} color={theme.colors.primary} />
+            <RNText style={styles.sectionTitle}>Font Style</RNText>
+          </View>
+          <GlassCard padded>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+              {FONT_OPTIONS.map((option) => {
+                const isActive = (fontPreference ?? 'system') === option.key;
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    activeOpacity={0.8}
+                    onPress={() => setFontPreference(option.key)}
+                  >
+                    {isActive ? (
+                      <LinearGradient
+                        colors={[theme.colors.primaryGradientStart, theme.colors.primaryGradientEnd]}
+                        style={styles_static.fontCard}
+                      >
+                        <RNText
+                          style={[
+                            styles_static.fontCardSample,
+                            { color: '#FFFFFF', fontFamily: option.fontFamily },
+                          ]}
+                        >
+                          {option.sampleText}
+                        </RNText>
+                        <RNText style={[styles_static.fontCardLabel, { color: 'rgba(255,255,255,0.85)' }]}>
+                          {option.label}
+                        </RNText>
+                      </LinearGradient>
+                    ) : (
+                      <View
+                        style={[
+                          styles_static.fontCard,
+                          { backgroundColor: theme.colors.border },
+                        ]}
+                      >
+                        <RNText
+                          style={[
+                            styles_static.fontCardSample,
+                            { color: theme.colors.text, fontFamily: option.fontFamily },
+                          ]}
+                        >
+                          {option.sampleText}
+                        </RNText>
+                        <RNText style={[styles_static.fontCardLabel, { color: theme.colors.textSecondary }]}>
+                          {option.label}
+                        </RNText>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </GlassCard>
 
           {/* Google Drive Sync */}

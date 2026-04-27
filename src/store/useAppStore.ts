@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
-import { Task, Folder, Tag, AppState } from '../types';
+import { Task, Folder, Tag, AppState, FontPreference } from '../types';
 import { NotificationManager } from '../utils/notifications';
 import { SyncService } from '../services/syncService';
 import { RecurrenceManager } from '../utils/recurrence';
@@ -70,6 +70,7 @@ const loadState = (): AppState => {
       ],
       tags: [],
       themePreference: 'system' as const,
+      fontPreference: 'system' as const,
     };
     
     if (!storedData) {
@@ -105,6 +106,7 @@ const loadState = (): AppState => {
       ],
       tags: [],
       themePreference: 'system',
+      fontPreference: 'system',
     };
   }
 };
@@ -165,6 +167,9 @@ interface AppStore extends AppState {
 
   // Theme actions
   setThemePreference: (preference: 'system' | 'light' | 'dark') => void;
+
+  // Font actions
+  setFontPreference: (preference: FontPreference) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => {
@@ -629,6 +634,14 @@ export const useAppStore = create<AppStore>((set, get) => {
     setThemePreference: (preference) => {
       set((state) => {
         const newState = { ...state, themePreference: preference };
+        saveState(newState);
+        return newState;
+      });
+    },
+
+    setFontPreference: (preference) => {
+      set((state) => {
+        const newState = { ...state, fontPreference: preference };
         saveState(newState);
         return newState;
       });
